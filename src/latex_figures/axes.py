@@ -20,8 +20,8 @@ class ScalarFormatterVirgule(ScalarFormatter):
     """``ScalarFormatter`` en notation mathématique, à virgule décimale, puissances de 10
     hors de [10⁻², 10⁴].
 
-    La virgule ne demande plus ``locale.setlocale("fr_FR")``, que l'ancien module
-    exécutait à l'import pour tout le programme (et qui échoue sans locale française).
+    La virgule ne passe pas par ``locale.setlocale("fr_FR")``, qui agirait sur tout le
+    programme et échoue sans locale française.
     """
 
     def __init__(self, **kwargs: Any) -> None:
