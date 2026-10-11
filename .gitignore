@@ -11,3 +11,7 @@ build/
 examples/*.pdf
 examples/*.png
 examples/*.eps
+
+# Réglages locaux de VS Code
+*.code-workspace
+.vscode/
