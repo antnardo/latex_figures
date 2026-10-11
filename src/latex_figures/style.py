@@ -1,20 +1,37 @@
 """Réglages de matplotlib pour des figures insérées dans un document LaTeX.
 
 Les dimensions sont en centimètres, comme dans le document. Les réglages
-partent de ceux du « Cookbook » de SciPy (Matplotlib/LaTeX_Examples).
+partent de ceux du « Cookbook » de SciPy (Matplotlib/LaTeX_Examples). Avec
+``usetex``, le préambule LaTeX charge babel (français) et siunitx, pour que les
+étiquettes s'écrivent comme dans le document (``\\qty{3}{\\m\\per\\s}``).
 """
 
+import copy
 import math
 import warnings
+from collections.abc import Sequence
 from typing import Any
 
 import matplotlib as mpl
 
-__all__ = ["INCH", "MAX_HEIGHT", "fig_size", "latexify", "parametres_latex"]
+__all__ = [
+    "INCH",
+    "MAX_HEIGHT",
+    "PREAMBULE",
+    "fig_size",
+    "latexify",
+    "parametres_latex",
+    "restaurer",
+]
 
 INCH = 2.54  # cm
 MAX_HEIGHT = 22.0  # cm, hauteur utile d'une page A4
 NOMBRE_OR = (math.sqrt(5) - 1) / 2  # 0,618
+#: Préambule LaTeX par défaut (``text.latex.preamble``), utilisé quand ``usetex`` est vrai.
+PREAMBULE = "\\usepackage[french]{babel}\n\\usepackage{siunitx}"
+
+# Réglages d'avant le premier ``latexify``, rendus par ``restaurer``.
+_AVANT: dict[str, Any] | None = None
 
 
 def fig_size(
@@ -42,13 +59,20 @@ def parametres_latex(
     ratio: float | None = None,
     usetex: bool = True,
     famille: str = "sans-serif",
+    preamble: str | Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Paramètres rc de ``latexify``, à passer aussi à ``plt.rc_context``.
 
     ``fig_width`` en cm (16 par défaut), ``fig_height`` en cm ou ``ratio`` × largeur,
-    ``famille`` : ``"sans-serif"`` ou ``"serif"``.
+    ``famille`` : ``"sans-serif"`` ou ``"serif"`` ; ``preamble`` : préambule LaTeX
+    (une chaîne, ou une ligne par élément), ``PREAMBULE`` par défaut, ``""`` pour
+    aucun ; il ne sert qu'avec ``usetex``.
     """
     largeur, hauteur = fig_size(16.0 if fig_width is None else fig_width, fig_height, ratio)
+    if preamble is None:
+        preamble = PREAMBULE
+    elif not isinstance(preamble, str):
+        preamble = "\n".join(preamble)
     return {
         "pgf.texsystem": "pdflatex",
         "axes.labelsize": 11,
@@ -56,6 +80,7 @@ def parametres_latex(
         "axes.formatter.use_mathtext": True,
         "font.size": 11,
         "text.usetex": usetex,
+        "text.latex.preamble": preamble,
         "font.family": famille,
         "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
         "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
@@ -79,14 +104,28 @@ def latexify(
     ratio: float | None = None,
     usetex: bool = True,
     famille: str = "sans-serif",
+    preamble: str | Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Applique ``parametres_latex`` à matplotlib (avant de créer les figures) et les rend.
 
     Les figures déjà créées gardent leurs réglages ; inutile de relancer la console.
     Aucune locale n'est modifiée : la virgule décimale vient de ``format_axes``.
+    ``restaurer`` rend les réglages d'avant.
     """
-    parametres = parametres_latex(fig_width, fig_height, ratio, usetex, famille)
+    global _AVANT
+    parametres = parametres_latex(fig_width, fig_height, ratio, usetex, famille, preamble)
+    if _AVANT is None:
+        _AVANT = {cle: copy.deepcopy(mpl.rcParams[cle]) for cle in parametres}  # type: ignore[index]
     # Les stubs de matplotlib ≥ 3.11 n'acceptent que des clés littérales ; matplotlib
     # vérifie de toute façon chaque clé à l'exécution.
     mpl.rcParams.update(parametres)  # type: ignore[arg-type]
     return parametres
+
+
+def restaurer() -> None:
+    """Rend à matplotlib les réglages d'avant le premier ``latexify`` (son inverse) ;
+    sans effet s'il n'a pas été appelé."""
+    global _AVANT
+    if _AVANT is not None:
+        mpl.rcParams.update(_AVANT)  # type: ignore[arg-type]
+        _AVANT = None
