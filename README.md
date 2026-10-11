@@ -3,7 +3,7 @@
 Figures matplotlib prêtes pour un document LaTeX : dimensions en centimètres, polices
 et préambule LaTeX (babel français, siunitx), virgule décimale sans changer la locale,
 incrustations, rognage au plus près par pdfcrop. C'est l'outil des figures de cours et
-de corrigés ; il réunit l'ancien `nicefigures` et sa copie `latex_figures`.
+de corrigés.
 
 ## Installation
 
