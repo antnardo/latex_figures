@@ -1,17 +1,20 @@
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.DS_Store
+uv.lock
 dist/
 build/
 *.egg-info/
-examples/*.pdf
-examples/*.png
-examples/*.eps
-
-# Réglages locaux de VS Code
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.DS_Store
 *.code-workspace
 .vscode/
+# What the examples write.
+*.pdf
+*.png
+*.eps
+!docs/*.png

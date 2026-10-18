@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from latex_figures.axes import ScalarFormatterVirgule, add_subplot_axes, format_axes
+from latex_figures.axes import DecimalCommaFormatter, add_inset, style_axes
 
 
 @pytest.fixture
@@ -12,52 +12,70 @@ def axes():
     return ax
 
 
-def test_chaque_axe_a_son_propre_formateur(axes):
-    format_axes(axes)
+def test_each_axis_gets_its_own_formatter(axes):
+    style_axes(axes)
     assert axes.xaxis.get_major_formatter() is not axes.yaxis.get_major_formatter()
 
 
-def test_facteurs_communs_independants(axes):
-    # Avec un formateur partagé, le dernier axe dessiné imposait son facteur à l'autre.
-    format_axes(axes)
+def test_common_factors_stay_independent(axes):
+    # With a shared formatter, the last axis drawn would impose its factor on the other.
+    style_axes(axes)
     axes.figure.canvas.draw()
-    x_offset = axes.xaxis.get_major_formatter().get_offset()
-    y_offset = axes.yaxis.get_major_formatter().get_offset()
-    assert "10^{5}" in x_offset
-    assert "10^{\N{MINUS SIGN}3}" in y_offset
+    assert "10^{5}" in axes.xaxis.get_major_formatter().get_offset()
+    assert "10^{\N{MINUS SIGN}3}" in axes.yaxis.get_major_formatter().get_offset()
 
 
-def test_virgule_decimale_sans_locale():
-    formateur = ScalarFormatterVirgule()
+def test_decimal_comma_without_locale():
+    formatter = DecimalCommaFormatter()
     fig, ax = plt.subplots()
     ax.set_xlim(0, 2)
-    ax.xaxis.set_major_formatter(formateur)
+    ax.xaxis.set_major_formatter(formatter)
     fig.canvas.draw()
-    assert formateur(1.5) == r"$\mathdefault{1{,}50}$"  # graduations 0, 0,25…
+    assert formatter(1.5) == r"$\mathdefault{1{,}50}$"  # ticks 0, 0.25…
 
 
-def test_axe_logarithmique_garde_son_formateur():
+def test_decimal_point_on_request(axes):
+    style_axes(axes, decimal_comma=False)
+    axes.set_xlim(0, 2)
+    axes.figure.canvas.draw()
+    formatter = axes.xaxis.get_major_formatter()
+    assert not isinstance(formatter, DecimalCommaFormatter)
+    assert "{,}" not in formatter(1.5)
+
+
+def test_log_axis_keeps_its_formatter():
     _, ax = plt.subplots()
     ax.set_yscale("log")
-    format_axes(ax)
-    assert not isinstance(ax.yaxis.get_major_formatter(), ScalarFormatterVirgule)
+    style_axes(ax)
+    assert not isinstance(ax.yaxis.get_major_formatter(), DecimalCommaFormatter)
 
 
-def test_format_ticks_faux_garde_les_formateurs(axes):
-    avant = axes.xaxis.get_major_formatter()
-    format_axes(axes, format_ticks=False)
-    assert axes.xaxis.get_major_formatter() is avant
+def test_format_ticks_false_keeps_the_formatters(axes):
+    before = axes.xaxis.get_major_formatter()
+    style_axes(axes, format_ticks=False)
+    assert axes.xaxis.get_major_formatter() is before
 
 
-def test_bords_gris(axes):
-    format_axes(axes)
+def test_current_axes_used_by_default(axes):
+    assert style_axes() is axes
+
+
+def test_spines_visible_and_grey(axes):
+    style_axes(axes)
     assert all(spine.get_visible() for spine in axes.spines.values())
+    assert all(spine.get_linewidth() == 0.5 for spine in axes.spines.values())
 
 
-def test_incrustation_dans_les_axes(axes):
-    incrustation = add_subplot_axes(axes, [0.6, 0.1, 0.3, 0.3])
+def test_inset_placed_inside_the_axes(axes):
+    inset = add_inset(axes, [0.6, 0.1, 0.3, 0.3])
     axes.figure.canvas.draw()
     parent = axes.get_position()
-    position = incrustation.get_position()
+    position = inset.get_position()
     assert position.x0 == pytest.approx(parent.x0 + 0.6 * parent.width)
     assert position.width == pytest.approx(0.3 * parent.width)
+
+
+def test_inset_tick_labels_shrink_with_its_size(axes):
+    size = axes.xaxis.get_ticklabels()[0].get_fontsize()
+    inset = add_inset(axes, [0.5, 0.5, 0.25, 0.25])
+    assert inset.xaxis.get_ticklabels()[0].get_fontsize() == pytest.approx(size * 0.5)

@@ -1,4 +1,4 @@
-"""Mise en forme des axes : bords discrets, graduations sortantes, virgule décimale."""
+"""Axes formatting: discreet spines, outward ticks, decimal comma."""
 
 from collections.abc import Sequence
 from typing import Any
@@ -7,21 +7,21 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.ticker import ScalarFormatter
 
-__all__ = ["ScalarFormatterVirgule", "add_subplot_axes", "format_axes"]
+__all__ = ["DecimalCommaFormatter", "add_inset", "style_axes"]
 
 
-def _virgule(texte: str) -> str:
-    # En mode mathématique (mathtext ou LaTeX), « {,} » évite l'espace qui suit
-    # une virgule de ponctuation.
-    return texte.replace(".", "{,}")
+def _comma(text: str) -> str:
+    # In math mode (mathtext or LaTeX), "{,}" avoids the space that follows a
+    # punctuation comma.
+    return text.replace(".", "{,}")
 
 
-class ScalarFormatterVirgule(ScalarFormatter):
-    """``ScalarFormatter`` en notation mathématique, à virgule décimale, puissances de 10
-    hors de [10⁻², 10⁴].
+class DecimalCommaFormatter(ScalarFormatter):
+    """A ``ScalarFormatter`` in math notation, with a decimal comma, and powers of 10
+    outside [10⁻², 10⁴].
 
-    La virgule ne passe pas par ``locale.setlocale("fr_FR")``, qui agirait sur tout le
-    programme et échoue sans locale française.
+    The comma does not go through ``locale.setlocale("fr_FR")``, which would act on
+    the whole program and fails where no French locale is installed.
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -30,18 +30,22 @@ class ScalarFormatterVirgule(ScalarFormatter):
         self.set_powerlimits((-2, 4))
 
     def __call__(self, x: float, pos: int | None = None) -> str:
-        return _virgule(super().__call__(x, pos))
+        return _comma(super().__call__(x, pos))
 
     def get_offset(self) -> str:
-        return _virgule(super().get_offset())
+        return _comma(super().get_offset())
 
 
-def format_axes(ax: Axes | None = None, format_ticks: bool = True) -> Axes:
-    """Bords gris et fins, graduations sortantes, et (``format_ticks``) un formateur à
-    virgule par axe linéaire. Appelle ``tight_layout`` sur la figure de ``ax``.
+def style_axes(
+    ax: Axes | None = None, format_ticks: bool = True, decimal_comma: bool = True
+) -> Axes:
+    """Thin grey spines, outward ticks, and (``format_ticks``) a formatter of its own on
+    each linear axis: :class:`DecimalCommaFormatter`, or with ``decimal_comma=False`` a
+    mathtext ``ScalarFormatter`` with the same power limits. Calls ``tight_layout`` on
+    the figure of ``ax`` (the current axes by default).
 
-    Chaque axe reçoit son propre formateur : l'ancien formateur unique, partagé, ne
-    gardait qu'un facteur commun (×10⁵ de l'axe x perdu au profit de celui de y).
+    Each axis gets its own formatter: a formatter shared by both axes keeps a single
+    common factor, so the ×10⁵ of the x axis would give way to the y axis's.
     """
     if ax is None:
         ax = plt.gca()
@@ -54,30 +58,38 @@ def format_axes(ax: Axes | None = None, format_ticks: bool = True) -> Axes:
     for axis in (ax.xaxis, ax.yaxis):
         axis.set_tick_params(direction="out", which="both", color="gray")
         if format_ticks and axis.get_scale() == "linear":
-            axis.set_major_formatter(ScalarFormatterVirgule())
+            axis.set_major_formatter(_formatter(decimal_comma))
     figure = ax.get_figure()
     if figure is not None:
         figure.tight_layout()  # type: ignore[union-attr]
     return ax
 
 
-def add_subplot_axes(ax: Axes, rect: Sequence[float]) -> Axes:
-    """Axes en incrustation dans ``ax`` ; ``rect = [x0, y0, largeur, hauteur]`` en
-    fraction de ``ax`` (par exemple ``[0.6, 0.1, 0.3, 0.3]``).
+def _formatter(decimal_comma: bool) -> ScalarFormatter:
+    if decimal_comma:
+        return DecimalCommaFormatter()
+    formatter = ScalarFormatter(useMathText=True)
+    formatter.set_powerlimits((-2, 4))
+    return formatter
 
-    Les étiquettes des graduations sont réduites comme la racine de la taille relative.
-    L'incrustation suit ``ax`` si la mise en page change (``Axes.inset_axes``).
 
-    Exemple ::
+def add_inset(ax: Axes, rect: Sequence[float]) -> Axes:
+    """Inset axes inside ``ax``; ``rect = [x0, y0, width, height]`` as fractions of
+    ``ax`` (for instance ``[0.6, 0.1, 0.3, 0.3]``).
 
-        ax_inset = add_subplot_axes(ax, rect=[0.6, 0.1, 0.3, 0.3])
-        ax_inset.plot(lambdas, sinus, "o", ms=3)
-        ax_inset.set_xlim(0, 650)
+    The tick labels shrink as the square root of the relative size. The inset follows
+    ``ax`` if the layout changes (``Axes.inset_axes``).
+
+    Example::
+
+        inset = add_inset(ax, rect=[0.6, 0.1, 0.3, 0.3])
+        inset.plot(wavelengths, sines, "o", ms=3)
+        inset.set_xlim(0, 650)
     """
-    x0, y0, largeur, hauteur = rect
-    incrustation = ax.inset_axes((x0, y0, largeur, hauteur))
-    for axis, facteur in ((incrustation.xaxis, largeur), (incrustation.yaxis, hauteur)):
-        etiquettes = axis.get_ticklabels()
-        taille = etiquettes[0].get_fontsize() if etiquettes else 10.0
-        axis.set_tick_params(labelsize=taille * facteur**0.5)
-    return incrustation
+    x0, y0, width, height = rect
+    inset = ax.inset_axes((x0, y0, width, height))
+    for axis, factor in ((inset.xaxis, width), (inset.yaxis, height)):
+        labels = axis.get_ticklabels()
+        size = labels[0].get_fontsize() if labels else 10.0
+        axis.set_tick_params(labelsize=size * factor**0.5)
+    return inset

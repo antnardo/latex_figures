@@ -1,47 +1,44 @@
-"""Figures matplotlib prêtes pour LaTeX : taille en cm, polices, virgule décimale,
-incrustations, rognage.
+"""matplotlib figures that match the LaTeX document they go into: size in centimetres,
+the document's fonts and preamble, a decimal comma, insets, and cropping to the ink.
 
-Usage ::
+Usage::
 
     import matplotlib.pyplot as plt
-    from latex_figures import format_axes, latexify, save_fig
+    from latex_figures import apply_style, save_figure, style_axes
 
-    latexify(8, 6)  # largeur, hauteur en cm, avant de créer les figures
+    apply_style(8, 6)  # width, height in cm, before creating the figures
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    format_axes(ax)  # bords, graduations, virgule décimale
-    save_fig(fig, "figure.pdf")  # rognée par pdfcrop
-
-Réunit l'ancien ``nicefigures`` (dont ``plot.py``, qui ne compilait plus) et
-``latex_figures``, qui en était une copie ; dépôt à part depuis octobre 2026.
+    style_axes(ax)  # spines, ticks, decimal comma
+    save_figure(fig, "figure.pdf")  # cropped by pdfcrop
 """
 
-from latex_figures.axes import ScalarFormatterVirgule, add_subplot_axes, format_axes
-from latex_figures.export import FORMATS, save_fig
+from latex_figures.axes import DecimalCommaFormatter, add_inset, style_axes
+from latex_figures.export import FORMATS, save_figure
 from latex_figures.style import (
     INCH,
     MAX_HEIGHT,
-    PREAMBULE,
-    fig_size,
-    latexify,
-    parametres_latex,
-    restaurer,
+    PREAMBLE,
+    apply_style,
+    figure_size,
+    restore_style,
+    style_params,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "FORMATS",
     "INCH",
     "MAX_HEIGHT",
-    "PREAMBULE",
-    "ScalarFormatterVirgule",
+    "PREAMBLE",
+    "DecimalCommaFormatter",
     "__version__",
-    "add_subplot_axes",
-    "fig_size",
-    "format_axes",
-    "latexify",
-    "parametres_latex",
-    "restaurer",
-    "save_fig",
+    "add_inset",
+    "apply_style",
+    "figure_size",
+    "restore_style",
+    "save_figure",
+    "style_axes",
+    "style_params",
 ]

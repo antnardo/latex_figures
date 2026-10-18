@@ -1,9 +1,13 @@
-"""Réglages de matplotlib pour des figures insérées dans un document LaTeX.
+"""matplotlib settings for figures inserted in a LaTeX document.
 
-Les dimensions sont en centimètres, comme dans le document. Les réglages
-partent de ceux du « Cookbook » de SciPy (Matplotlib/LaTeX_Examples). Avec
-``usetex``, le préambule LaTeX charge babel (français) et siunitx, pour que les
-étiquettes s'écrivent comme dans le document (``\\qty{3}{\\m\\per\\s}``).
+Dimensions are in centimetres, like in the document. The settings start from those of
+the SciPy "Cookbook" (Matplotlib/LaTeX_Examples). With ``usetex``, the LaTeX preamble
+loads amsmath and siunitx, so that labels are written as in the document
+(``\\qty{3}{\\m\\per\\s}``).
+
+The settings saved before the first :func:`apply_style` live in a module variable, not
+in a class: ``rcParams`` is itself global to matplotlib, and :func:`restore_style`
+must undo every :func:`apply_style` since, whoever made it.
 """
 
 import copy
@@ -17,60 +21,60 @@ import matplotlib as mpl
 __all__ = [
     "INCH",
     "MAX_HEIGHT",
-    "PREAMBULE",
-    "fig_size",
-    "latexify",
-    "parametres_latex",
-    "restaurer",
+    "PREAMBLE",
+    "apply_style",
+    "figure_size",
+    "restore_style",
+    "style_params",
 ]
 
 INCH = 2.54  # cm
-MAX_HEIGHT = 22.0  # cm, hauteur utile d'une page A4
-NOMBRE_OR = (math.sqrt(5) - 1) / 2  # 0,618
-#: Préambule LaTeX par défaut (``text.latex.preamble``), utilisé quand ``usetex`` est vrai.
-PREAMBULE = "\\usepackage[french]{babel}\n\\usepackage{siunitx}"
+MAX_HEIGHT = 22.0  # cm, the usable height of an A4 page
+_GOLDEN_RATIO = (math.sqrt(5) - 1) / 2  # 0.618
+#: Default LaTeX preamble (``text.latex.preamble``), used when ``usetex`` is true.
+PREAMBLE = "\\usepackage{amsmath}\n\\usepackage{siunitx}"
 
-# Réglages d'avant le premier ``latexify``, rendus par ``restaurer``.
-_AVANT: dict[str, Any] | None = None
+# Settings from before the first ``apply_style``, given back by ``restore_style``.
+_SAVED: dict[str, Any] | None = None
 
 
-def fig_size(
-    fig_width: float = 16.0, fig_height: float | None = None, ratio: float | None = None
+def figure_size(
+    width: float = 16.0, height: float | None = None, ratio: float | None = None
 ) -> tuple[float, float]:
-    """Taille (largeur, hauteur) en pouces d'une figure donnée en cm.
+    """Size (width, height) in inches of a figure given in cm.
 
-    Sans hauteur, elle vaut ``ratio`` × largeur (nombre d'or par défaut). Au-delà de
-    22 cm, la hauteur est ramenée à 22 cm, avec un avertissement.
+    Without a height, it is ``ratio`` × width (the golden ratio by default). Beyond
+    22 cm, the height is brought down to 22 cm, with a warning.
     """
-    if fig_height is None:
-        fig_height = fig_width * (NOMBRE_OR if ratio is None else ratio)
-    if fig_height > MAX_HEIGHT:
+    if height is None:
+        height = width * (_GOLDEN_RATIO if ratio is None else ratio)
+    if height > MAX_HEIGHT:
         warnings.warn(
-            f"Hauteur de figure {fig_height} cm trop grande : ramenée à {MAX_HEIGHT} cm.",
+            f"Figure height {height} cm too tall: brought down to {MAX_HEIGHT} cm.",
             stacklevel=2,
         )
-        fig_height = MAX_HEIGHT
-    return fig_width / INCH, fig_height / INCH
+        height = MAX_HEIGHT
+    return width / INCH, height / INCH
 
 
-def parametres_latex(
-    fig_width: float | None = None,
-    fig_height: float | None = None,
+def style_params(
+    width: float | None = None,
+    height: float | None = None,
     ratio: float | None = None,
     usetex: bool = True,
-    famille: str = "sans-serif",
+    family: str = "sans-serif",
     preamble: str | Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Paramètres rc de ``latexify``, à passer aussi à ``plt.rc_context``.
+    """The rc parameters of :func:`apply_style`, to pass to ``plt.rc_context`` as well.
 
-    ``fig_width`` en cm (16 par défaut), ``fig_height`` en cm ou ``ratio`` × largeur,
-    ``famille`` : ``"sans-serif"`` ou ``"serif"`` ; ``preamble`` : préambule LaTeX
-    (une chaîne, ou une ligne par élément), ``PREAMBULE`` par défaut, ``""`` pour
-    aucun ; il ne sert qu'avec ``usetex``.
+    ``width`` in cm (16 by default), ``height`` in cm or ``ratio`` × width; ``family``:
+    ``"sans-serif"`` or ``"serif"``; ``preamble``: the LaTeX preamble (a string, or one
+    line per item), :data:`PREAMBLE` by default, ``""`` for none; it only matters with
+    ``usetex``.
     """
-    largeur, hauteur = fig_size(16.0 if fig_width is None else fig_width, fig_height, ratio)
+    inches_wide, inches_high = figure_size(16.0 if width is None else width, height, ratio)
     if preamble is None:
-        preamble = PREAMBULE
+        preamble = PREAMBLE
     elif not isinstance(preamble, str):
         preamble = "\n".join(preamble)
     return {
@@ -81,14 +85,14 @@ def parametres_latex(
         "font.size": 11,
         "text.usetex": usetex,
         "text.latex.preamble": preamble,
-        "font.family": famille,
+        "font.family": family,
         "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
         "font.sans-serif": ["Arial", "Helvetica", "DejaVu Sans"],
         "legend.fontsize": 8,
         "xtick.labelsize": 10,
         "ytick.labelsize": 10,
         "lines.markersize": 3,
-        "figure.figsize": [largeur, hauteur],
+        "figure.figsize": [inches_wide, inches_high],
         "figure.subplot.left": 0.16,
         "figure.subplot.right": 0.94,
         "figure.subplot.bottom": 0.14,
@@ -98,34 +102,34 @@ def parametres_latex(
     }
 
 
-def latexify(
-    fig_width: float | None = None,
-    fig_height: float | None = None,
+def apply_style(
+    width: float | None = None,
+    height: float | None = None,
     ratio: float | None = None,
     usetex: bool = True,
-    famille: str = "sans-serif",
+    family: str = "sans-serif",
     preamble: str | Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Applique ``parametres_latex`` à matplotlib (avant de créer les figures) et les rend.
+    """Applies :func:`style_params` to matplotlib (before creating the figures) and returns them.
 
-    Les figures déjà créées gardent leurs réglages ; inutile de relancer la console.
-    Aucune locale n'est modifiée : la virgule décimale vient de ``format_axes``.
-    ``restaurer`` rend les réglages d'avant.
+    Figures already created keep their settings; no need to restart the console. No
+    locale is changed: the decimal comma comes from :func:`~latex_figures.style_axes`.
+    :func:`restore_style` gives back the settings from before.
     """
-    global _AVANT
-    parametres = parametres_latex(fig_width, fig_height, ratio, usetex, famille, preamble)
-    if _AVANT is None:
-        _AVANT = {cle: copy.deepcopy(mpl.rcParams[cle]) for cle in parametres}  # type: ignore[index]
-    # Les stubs de matplotlib ≥ 3.11 n'acceptent que des clés littérales ; matplotlib
-    # vérifie de toute façon chaque clé à l'exécution.
-    mpl.rcParams.update(parametres)  # type: ignore[arg-type]
-    return parametres
+    global _SAVED
+    params = style_params(width, height, ratio, usetex, family, preamble)
+    if _SAVED is None:
+        _SAVED = {key: copy.deepcopy(mpl.rcParams[key]) for key in params}  # type: ignore[index]
+    # matplotlib ≥ 3.11's stubs only accept literal keys; matplotlib checks every key at
+    # run time anyway.
+    mpl.rcParams.update(params)  # type: ignore[arg-type]
+    return params
 
 
-def restaurer() -> None:
-    """Rend à matplotlib les réglages d'avant le premier ``latexify`` (son inverse) ;
-    sans effet s'il n'a pas été appelé."""
-    global _AVANT
-    if _AVANT is not None:
-        mpl.rcParams.update(_AVANT)  # type: ignore[arg-type]
-        _AVANT = None
+def restore_style() -> None:
+    """Gives matplotlib back the settings from before the first :func:`apply_style` (its
+    inverse); does nothing if it was not called."""
+    global _SAVED
+    if _SAVED is not None:
+        mpl.rcParams.update(_SAVED)  # type: ignore[arg-type]
+        _SAVED = None

@@ -1,83 +1,85 @@
-import locale
 import shutil
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pytest
 
-import latex_figures
 from latex_figures import style
-from latex_figures.style import INCH, PREAMBULE, fig_size, latexify, parametres_latex, restaurer
+from latex_figures.style import (
+    INCH,
+    PREAMBLE,
+    apply_style,
+    figure_size,
+    restore_style,
+    style_params,
+)
 
 
-@pytest.fixture
-def sans_latexify_precedent():
-    style._AVANT = None
-    yield
-    style._AVANT = None
+@pytest.fixture(autouse=True)
+def fresh_style():
+    """No apply_style from an earlier test, and the rcParams given back afterwards."""
+    style._SAVED = None
+    with mpl.rc_context():
+        yield
+    style._SAVED = None
 
 
-def test_taille_en_centimetres_convertie_en_pouces():
-    assert fig_size(8, 6) == pytest.approx((8 / INCH, 6 / INCH))
+def test_size_in_centimetres_converted_to_inches():
+    assert figure_size(8, 6) == pytest.approx((8 / INCH, 6 / INCH))
 
 
-def test_hauteur_par_defaut_au_nombre_d_or():
-    largeur, hauteur = fig_size(16)
-    assert hauteur / largeur == pytest.approx(0.618, abs=1e-3)
+def test_default_height_at_the_golden_ratio():
+    width, height = figure_size(16)
+    assert height / width == pytest.approx(0.618, abs=1e-3)
 
 
-def test_hauteur_au_dela_de_22_cm_ramenee_avec_avertissement():
-    # L'ancienne version concaténait str et float et levait TypeError.
+def test_height_beyond_22_cm_brought_down_with_a_warning():
     with pytest.warns(UserWarning, match="22"):
-        assert fig_size(16, 30)[1] == pytest.approx(22 / INCH)
+        assert figure_size(16, 30)[1] == pytest.approx(22 / INCH)
 
 
-def test_latexify_applique_et_rend_les_parametres(sans_latexify_precedent):
-    with mpl.rc_context():
-        parametres = latexify(8, 6, usetex=False)
-        assert mpl.rcParams["figure.figsize"] == pytest.approx([8 / INCH, 6 / INCH])
-        assert parametres["text.usetex"] is False
+def test_apply_style_applies_and_returns_the_params():
+    params = apply_style(8, 6, usetex=False)
+    assert mpl.rcParams["figure.figsize"] == pytest.approx([8 / INCH, 6 / INCH])
+    assert params["text.usetex"] is False
 
 
-def test_restaurer_rend_les_reglages_d_avant_le_premier_latexify(sans_latexify_precedent):
-    with mpl.rc_context():
-        avant = dict(mpl.rcParams)
-        latexify(8, 6, usetex=False)
-        latexify(10, usetex=False, famille="serif")
+def test_restore_style_gives_back_the_settings_before_the_first_apply():
+    before = dict(mpl.rcParams)
+    apply_style(8, 6, usetex=False)
+    apply_style(10, usetex=False, family="serif")
+    assert mpl.rcParams["font.family"] == ["serif"]
+    restore_style()
+    assert dict(mpl.rcParams) == before
+    restore_style()  # no effect a second time
+    assert dict(mpl.rcParams) == before
+
+
+def test_params_usable_in_rc_context():
+    with mpl.rc_context(style_params(10, ratio=0.5, usetex=False, family="serif")):
         assert mpl.rcParams["font.family"] == ["serif"]
-        restaurer()
-        assert dict(mpl.rcParams) == avant
-        restaurer()  # sans effet une seconde fois
-        assert dict(mpl.rcParams) == avant
+        assert mpl.rcParams["figure.figsize"][1] == pytest.approx(5 / INCH)
 
 
-class TestPreambule:
-    def test_babel_et_siunitx_par_defaut(self):
-        preambule = parametres_latex()["text.latex.preamble"]
-        assert preambule == PREAMBULE
-        assert "[french]{babel}" in preambule
-        assert "{siunitx}" in preambule
+class TestPreamble:
+    def test_amsmath_and_siunitx_by_default(self):
+        preamble = style_params()["text.latex.preamble"]
+        assert preamble == PREAMBLE
+        assert "{amsmath}" in preamble and "{siunitx}" in preamble
+        assert "babel" not in preamble
 
-    def test_preambule_donne_en_lignes_ou_en_chaine(self):
-        lignes = [r"\usepackage{amsmath}", r"\usepackage{physics}"]
-        assert parametres_latex(preamble=lignes)["text.latex.preamble"] == "\n".join(lignes)
-        assert parametres_latex(preamble="")["text.latex.preamble"] == ""
+    def test_preamble_given_as_lines_or_string(self):
+        lines = [r"\usepackage{amsmath}", r"\usepackage{physics}"]
+        assert style_params(preamble=lines)["text.latex.preamble"] == "\n".join(lines)
+        assert style_params(preamble="")["text.latex.preamble"] == ""
 
-    @pytest.mark.skipif(shutil.which("latex") is None, reason="LaTeX absent")
-    def test_le_preambule_compile_avec_latex(self, tmp_path):
-        with mpl.rc_context(parametres_latex(8, 6)):
+    @pytest.mark.latex
+    def test_preamble_compiles_with_latex(self, tmp_path):
+        if shutil.which("latex") is None:
+            pytest.skip("no LaTeX distribution")
+        with mpl.rc_context(style_params(8, 6)):
             fig, ax = plt.subplots()
             ax.plot([0, 1], [0, 1])
             ax.set_xlabel(r"$v$ (\qty{1}{\m\per\s})")
-            fig.savefig(tmp_path / "preambule.pdf")
-        assert (tmp_path / "preambule.pdf").stat().st_size > 0
-
-
-def test_parametres_utilisables_dans_rc_context():
-    with mpl.rc_context(parametres_latex(10, ratio=0.5, usetex=False, famille="serif")):
-        assert mpl.rcParams["font.family"] == ["serif"]
-
-
-def test_import_sans_changer_la_locale():
-    assert latex_figures.__name__ == "latex_figures"
-    assert locale.setlocale(locale.LC_NUMERIC) in ("C", "C.UTF-8", "en_US.UTF-8")
+            fig.savefig(tmp_path / "preamble.pdf")
+        assert (tmp_path / "preamble.pdf").stat().st_size > 0

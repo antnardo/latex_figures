@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pytest
 
 from latex_figures import export
-from latex_figures.export import save_fig
+from latex_figures.export import save_figure
 
 
 @pytest.fixture
@@ -15,44 +15,46 @@ def figure():
     return fig
 
 
-def test_extension_ajoutee_et_fichier_ecrit_sans_rognage(figure, tmp_path):
-    chemin = save_fig(figure, tmp_path / "figure", fmt="png", crop=False)
-    assert chemin.name == "figure.png"
-    assert chemin.exists()
+def test_extension_added_and_file_written_without_cropping(figure, tmp_path):
+    path = save_figure(figure, tmp_path / "figure", fmt="png", crop=False)
+    assert path.name == "figure.png"
+    assert path.exists()
 
 
-def test_format_inconnu_refuse(figure, tmp_path):
-    with pytest.raises(ValueError, match="non pris en charge"):
-        save_fig(figure, tmp_path / "figure.jpg")
+def test_unknown_format_rejected(figure, tmp_path):
+    with pytest.raises(ValueError, match="Unsupported format"):
+        save_figure(figure, tmp_path / "figure.jpg")
 
 
-def test_outil_absent_enregistre_sans_rogner(figure, tmp_path, monkeypatch):
-    monkeypatch.setattr(export.shutil, "which", lambda nom: None)
-    with pytest.warns(UserWarning, match="introuvable"):
-        chemin = save_fig(figure, tmp_path / "figure.pdf")
-    assert chemin.exists()
+def test_missing_tool_saves_uncropped_with_a_warning(figure, tmp_path, monkeypatch):
+    monkeypatch.setattr(export.shutil, "which", lambda name: None)
+    with pytest.warns(UserWarning, match="not found"):
+        path = save_figure(figure, tmp_path / "figure.pdf")
+    assert path.exists()
 
 
-def test_rognage_sans_shell_et_sans_fichier_temporaire_restant(figure, tmp_path, monkeypatch):
-    appels = []
+def test_cropping_without_shell_and_without_temporary_file_left(figure, tmp_path, monkeypatch):
+    calls = []
 
-    def faux_run(arguments, **options):
-        appels.append((arguments, options))
-        entree, sortie = arguments[1], arguments[2]
-        assert " " in sortie  # chemin à espaces passé tel quel
-        Path(sortie).write_bytes(Path(entree).read_bytes())
+    def fake_run(arguments, **options):
+        calls.append((arguments, options))
+        source, target = arguments[1], arguments[2]
+        assert " " in target  # a path with spaces passed as it is
+        Path(target).write_bytes(Path(source).read_bytes())
         return subprocess.CompletedProcess(arguments, 0)
 
-    monkeypatch.setattr(export.shutil, "which", lambda nom: f"/usr/bin/{nom}")
-    monkeypatch.setattr(export.subprocess, "run", faux_run)
-    chemin = save_fig(figure, tmp_path / "ma figure.pdf")
-    ((arguments, options),) = appels
+    monkeypatch.setattr(export.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(export.subprocess, "run", fake_run)
+    path = save_figure(figure, tmp_path / "my figure.pdf")
+    ((arguments, options),) = calls
     assert arguments[0] == "pdfcrop"
     assert "shell" not in options
-    assert chemin.exists()
-    assert not Path(arguments[1]).exists()  # dossier temporaire effacé
+    assert path.exists()
+    assert not Path(arguments[1]).exists()  # temporary folder deleted
 
 
-@pytest.mark.skipif(export.shutil.which("pdfcrop") is None, reason="pdfcrop absent")
-def test_rognage_reel_avec_pdfcrop(figure, tmp_path):
-    assert save_fig(figure, tmp_path / "rognee.pdf").stat().st_size > 0
+@pytest.mark.latex
+def test_real_cropping_with_pdfcrop(figure, tmp_path):
+    if export.shutil.which("pdfcrop") is None:
+        pytest.skip("pdfcrop missing")
+    assert save_figure(figure, tmp_path / "cropped.pdf").stat().st_size > 0

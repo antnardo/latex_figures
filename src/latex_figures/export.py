@@ -1,11 +1,9 @@
-"""Enregistrement d'une figure, rognée au plus près par un outil externe.
+"""Saving a figure, cropped as tight as can be by an external tool.
 
-``bbox_inches="tight"`` laisse une marge autour des boîtes de texte ; pdfcrop
-(PDF), ImageMagick (PNG) ou epstool (EPS) rognent à l'encre près. La figure
-passe par un fichier temporaire, effacé ensuite (l'ancien restait dans /tmp),
-et les outils sont lancés sans shell : un chemin avec espaces ne casse plus
-rien. Sans l'outil, la figure est enregistrée non rognée, avec un
-avertissement.
+``bbox_inches="tight"`` leaves a margin around the text boxes; pdfcrop (PDF),
+ImageMagick (PNG) or epstool (EPS) crop to the ink. The figure goes through a temporary
+file, deleted afterwards, and the tools run without a shell: a path with spaces breaks
+nothing. Without the tool, the figure is saved uncropped, with a warning.
 """
 
 import shutil
@@ -17,9 +15,9 @@ from typing import Any
 
 from matplotlib.figure import Figure
 
-__all__ = ["FORMATS", "save_fig"]
+__all__ = ["FORMATS", "save_figure"]
 
-#: Format → commandes de rognage possibles, la première trouvée sert ({e} : entrée, {s} : sortie).
+#: Format → possible cropping commands, the first one found is used ({e}: input, {s}: output).
 FORMATS: dict[str, list[list[str]]] = {
     "pdf": [["pdfcrop", "{e}", "{s}"]],
     "png": [["magick", "{e}", "-trim", "{s}"], ["convert", "{e}", "-trim", "{s}"]],
@@ -27,43 +25,46 @@ FORMATS: dict[str, list[list[str]]] = {
 }
 
 
-def _commande(fmt: str) -> list[str] | None:
-    for commande in FORMATS[fmt]:
-        if shutil.which(commande[0]):
-            return commande
+def _command(fmt: str) -> list[str] | None:
+    for command in FORMATS[fmt]:
+        if shutil.which(command[0]):
+            return command
     return None
 
 
-def save_fig(
+def save_figure(
     fig: Figure,
-    file_name: str | Path,
+    path: str | Path,
     fmt: str | None = None,
     dpi: int = 300,
     tight: bool = True,
     crop: bool = True,
 ) -> Path:
-    """Enregistre ``fig`` en PDF, PNG ou EPS (d'après l'extension, ou ``fmt``), rognée.
+    """Saves ``fig`` as PDF, PNG or EPS (from the extension, or ``fmt``), cropped.
 
-    L'extension est ajoutée au nom si elle manque. Rend le chemin écrit.
+    The extension is added to the name if it is missing. Returns the path written.
+
+    :raises ValueError: for a format outside :data:`FORMATS`.
+    :raises subprocess.CalledProcessError: when the cropping tool fails.
     """
-    chemin = Path(file_name).expanduser().resolve()
-    fmt = fmt or chemin.suffix.lstrip(".").lower()
+    target = Path(path).expanduser().resolve()
+    fmt = fmt or target.suffix.lstrip(".").lower()
     if fmt not in FORMATS:
-        raise ValueError(f"Format non pris en charge : {fmt!r} ({', '.join(FORMATS)}).")
-    if chemin.suffix.lower() != f".{fmt}":
-        chemin = chemin.with_name(chemin.name + f".{fmt}")
+        raise ValueError(f"Unsupported format: {fmt!r} ({', '.join(FORMATS)}).")
+    if target.suffix.lower() != f".{fmt}":
+        target = target.with_name(target.name + f".{fmt}")
     options: dict[str, Any] = {"dpi": dpi, "format": fmt, "bbox_inches": "tight" if tight else None}
 
-    commande = _commande(fmt) if crop else None
-    if crop and commande is None:
-        outils = ", ".join(c[0] for c in FORMATS[fmt])
-        warnings.warn(f"{outils} introuvable : figure non rognée.", stacklevel=2)
-    if commande is None:
-        fig.savefig(chemin, **options)
-        return chemin
-    with tempfile.TemporaryDirectory() as dossier:
-        brut = Path(dossier) / f"figure.{fmt}"
-        fig.savefig(brut, **options)
-        arguments = [a.format(e=brut, s=chemin) for a in commande]
+    command = _command(fmt) if crop else None
+    if crop and command is None:
+        tools = ", ".join(c[0] for c in FORMATS[fmt])
+        warnings.warn(f"{tools} not found: figure not cropped.", stacklevel=2)
+    if command is None:
+        fig.savefig(target, **options)
+        return target
+    with tempfile.TemporaryDirectory() as folder:
+        raw = Path(folder) / f"figure.{fmt}"
+        fig.savefig(raw, **options)
+        arguments = [a.format(e=raw, s=target) for a in command]
         subprocess.run(arguments, check=True, capture_output=True)
-    return chemin
+    return target

@@ -7,6 +7,6 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def ferme_les_figures():
+def close_figures():
     yield
     plt.close("all")

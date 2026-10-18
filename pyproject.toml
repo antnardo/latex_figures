@@ -1,52 +1,55 @@
 [project]
-name = "latex_figures"
+name = "latex-figures"
 dynamic = ["version"]
-description = "Figures matplotlib prêtes pour LaTeX : taille en cm, polices, virgule décimale, rognage"
+description = "matplotlib figures that match their LaTeX document: size in cm, fonts, preamble, decimal comma, cropping"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Antonin Marchand" }]
-keywords = ["matplotlib", "latex", "figures", "siunitx", "enseignement"]
+keywords = ["matplotlib", "latex", "figures", "siunitx", "decimal comma", "pdfcrop"]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Matplotlib",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "Intended Audience :: Education",
-    "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Visualization",
-    "Natural Language :: French",
+    "Topic :: Text Processing :: Markup :: LaTeX",
     "Typing :: Typed",
 ]
 dependencies = ["matplotlib>=3.8"]
 
 [project.urls]
 Homepage = "https://github.com/antnardo/latex_figures"
+Documentation = "https://github.com/antnardo/latex_figures/blob/main/docs/DOC.md"
 Repository = "https://github.com/antnardo/latex_figures"
 Issues = "https://github.com/antnardo/latex_figures/issues"
 Changelog = "https://github.com/antnardo/latex_figures/blob/main/CHANGELOG.md"
 
 [dependency-groups]
-# scipy ne sert qu'à l'exemple (fonction de Bessel).
-dev = ["pytest", "ruff", "mypy", "scipy"]
+dev = ["pytest", "ruff", "mypy"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# La version vit dans le module : une seule source, que la publication compare à
-# l'étiquette de la release.
+# The version lives in the module: one source, which publish.yml compares with the
+# release tag.
 [tool.hatch.version]
 path = "src/latex_figures/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/latex_figures"]
 
-# Le sdist : le code, les exemples et la documentation ; ni les tests ni uv.lock.
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/examples", "/README.md", "/CHANGELOG.md", "/LICENSE"]
+include = ["/src", "/tests", "/examples", "/docs", "/README.md", "/CHANGELOG.md", "/LICENSE"]
 
 [tool.ruff]
 line-length = 100
@@ -54,12 +57,13 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "N", "C4", "PTH", "RET"]
-# RUF001-003 : la prose utilise des tirets typographiques et des accents.
+# RUF001-003: the prose uses typographic dashes and symbols (×, ⁻, …).
 ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
+markers = ["latex: needs a LaTeX distribution (latex, dvipng) or pdfcrop on the PATH"]
 
 [tool.mypy]
 files = ["src"]
