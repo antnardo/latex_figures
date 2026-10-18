@@ -79,8 +79,8 @@ matplotlib up and saves.
 pip install latex-figures
 ```
 
-Python 3.11 or later and matplotlib 3.8 or later. Outside Python, depending on what you
-use:
+Python 3.11 or later. The one dependency is matplotlib 3.8 or later, which draws the
+figures. Outside Python, depending on what you use:
 
 | Program | Needed for | Install |
 | --- | --- | --- |
@@ -94,19 +94,27 @@ siunitx. Without the cropping tool, `save_figure` saves the figure uncropped and
 
 ## Usage
 
-### Setting matplotlib up
+### Sizing every figure of a script
 
-`apply_style(width, height)` changes `matplotlib.rcParams` for every figure created
-afterwards, and `restore_style()` gives back the settings from before. For a single
-figure, use the same settings in a context:
+`apply_style` changes `matplotlib.rcParams` for every figure created afterwards;
+`restore_style` gives back the settings from before.
 
 ```python
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from latex_figures import style_params
+from latex_figures import apply_style, restore_style
 
-with plt.rc_context(style_params(12, ratio=0.5, family="serif")):
-    fig, ax = plt.subplots()  # 12 cm × 6 cm, serif fonts
+apply_style(12, ratio=0.5, family="serif")
+fig, ax = plt.subplots()
+print(fig.get_size_inches() * 2.54, mpl.rcParams["font.family"])
+restore_style()
+print(mpl.rcParams["font.family"])
+```
+
+```text
+[12.  6.] ['serif']
+['sans-serif']
 ```
 
 | Parameter | Default | Meaning |
@@ -118,35 +126,120 @@ with plt.rc_context(style_params(12, ratio=0.5, family="serif")):
 | `family` | `"sans-serif"` | or `"serif"` |
 | `preamble` | `PREAMBLE` | LaTeX preamble, a string or a list of lines; `""` for none |
 
-### Your preamble
+### Sizing one figure only
 
-Give the packages your document loads, so that its macros work in labels:
+`style_params` takes the same parameters and returns the settings without applying
+them, for `plt.rc_context`; the other figures keep theirs.
 
 ```python
-apply_style(8, 6, preamble=[r"\usepackage[french]{babel}", r"\usepackage{siunitx}"])
+import matplotlib.pyplot as plt
+
+from latex_figures import style_params
+
+with plt.rc_context(style_params(8, 6, usetex=False)):
+    fig, ax = plt.subplots()
+print(fig.get_size_inches() * 2.54)
 ```
 
-### Axes
+```text
+[8. 6.]
+```
 
-`style_axes(ax)` draws thin grey spines and outward ticks, gives each linear axis a
-`DecimalCommaFormatter` (`decimal_comma=False` for a point), and calls `tight_layout`.
-`format_ticks=False` keeps the formatters you set. `DecimalCommaFormatter` can also be
-used alone:
+### Your preamble
+
+Give the packages and settings your document uses, so that its macros work in the
+labels. Here a French document, where siunitx writes `1,5`:
 
 ```python
-from latex_figures import DecimalCommaFormatter
+import matplotlib.pyplot as plt
 
-ax.yaxis.set_major_formatter(DecimalCommaFormatter())
+from latex_figures import apply_style, save_figure, style_axes
+
+apply_style(
+    8, 5,
+    preamble=[
+        r"\usepackage[french]{babel}",
+        r"\usepackage{siunitx}",
+        r"\sisetup{locale = FR}",
+    ],
+)
+fig, ax = plt.subplots()
+ax.plot([0, 2, 4], [0, 3, 6])
+ax.set_xlabel(r"Temps : $t$ (\unit{\s})")
+ax.set_ylabel(r"Distance : $d$ (\unit{\m})")
+ax.set_title(r"Vitesse : \qty{1.5}{\m\per\s}")
+style_axes(ax)
+print(save_figure(fig, "speed.pdf").name)
+```
+
+```text
+speed.pdf
+```
+
+### Axes and the decimal comma
+
+`style_axes(ax)` draws thin grey spines and outward ticks, gives each linear axis a
+`DecimalCommaFormatter`, and calls `tight_layout`. `decimal_comma=False` keeps a
+decimal point; `format_ticks=False` keeps the formatters you set. The formatter also
+works alone:
+
+```python
+import matplotlib.pyplot as plt
+
+from latex_figures import DecimalCommaFormatter, style_axes
+
+fig, ax = plt.subplots()
+ax.plot([0, 3e5], [0, 2.5e-3])
+style_axes(ax)
+fig.canvas.draw()
+print(ax.yaxis.get_major_formatter().get_offset())
+
+formatter = DecimalCommaFormatter()
+ax.set_ylim(0, 2)
+ax.yaxis.set_major_formatter(formatter)
+fig.canvas.draw()
+print(formatter(1.5))
+```
+
+```text
+$\times\mathdefault{10^{−3}}\mathdefault{}$
+$\mathdefault{1{,}50}$
 ```
 
 `add_inset(ax, [x0, y0, width, height])` places inset axes, in fractions of `ax`, with
-tick labels shrunk to suit their size.
+tick labels shrunk to suit their size, as in the figure above; call `style_axes` on the
+inset too.
 
 ### Saving
 
 `save_figure(fig, path)` takes the format from the extension (`pdf`, `png`, `eps`) or
-from `fmt=`, adds the extension when missing, saves at 300 dpi and returns the
-absolute path. `crop=False` skips the cropping.
+from `fmt=`, adds the extension when missing, saves at 300 dpi, crops, and returns the
+absolute path. `crop=False` skips the cropping; a missing tool gives a warning.
+
+```python
+import warnings
+
+import matplotlib.pyplot as plt
+
+from latex_figures import save_figure
+
+fig, ax = plt.subplots()
+ax.plot([0, 1], [0, 1])
+print(save_figure(fig, "figure", fmt="png").name)
+print(save_figure(fig, "raw.pdf", crop=False).name)
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    save_figure(fig, "figure.eps")
+print(caught[0].message if caught else "cropped")
+```
+
+```text
+figure.png
+raw.pdf
+epstool not found: figure not cropped.
+```
+
+The last line reads `cropped` where epstool is installed.
 
 The full reference, with every parameter and error, is in
 [docs/DOC.md](https://github.com/antnardo/latex_figures/blob/main/docs/DOC.md).
