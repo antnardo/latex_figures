@@ -3,6 +3,14 @@
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `style_axes` takes keyword-only `ticks` (`"out"`, `"in"`, `"inout"`), `mirror`
+  (ticks on all four sides), `minor` (minor ticks) and `color` (spines and ticks).
+  The defaults keep the previous look.
+
 ## [0.2.0] - 2026-10-18
 
 First release on PyPI.
@@ -19,4 +27,5 @@ First release on PyPI.
 - `add_inset`: inset axes with tick labels to scale.
 - `save_figure`: PDF, PNG or EPS cropped to the ink by pdfcrop, ImageMagick or epstool.
 
+[Unreleased]: https://github.com/antnardo/latex_figures/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/antnardo/latex_figures/releases/tag/v0.2.0

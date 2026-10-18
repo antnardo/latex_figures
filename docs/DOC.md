@@ -82,14 +82,26 @@ with a `UserWarning`.
 ### `style_axes`
 
 ```python
-style_axes(ax=None, format_ticks=True, decimal_comma=True) -> Axes
+style_axes(ax=None, format_ticks=True, decimal_comma=True, *, ticks="out",
+           mirror=False, minor=False, color="gray") -> Axes
 ```
 
-Grey 0.5 pt spines, ticks outward at the bottom and left, and with `format_ticks` a
-formatter of its own on each linear axis: `DecimalCommaFormatter`, or with
-`decimal_comma=False` a mathtext `ScalarFormatter` with the same power limits.
-Logarithmic axes keep theirs. Calls `tight_layout` on the figure. `ax` defaults to
-`plt.gca()`; returns it.
+0.5 pt spines, ticks at the bottom and left, and with `format_ticks` a formatter of
+its own on each linear axis: `DecimalCommaFormatter`, or with `decimal_comma=False` a
+mathtext `ScalarFormatter` with the same power limits. Logarithmic axes keep theirs.
+Calls `tight_layout` on the figure. `ax` defaults to `plt.gca()`; returns it.
+
+The keyword-only arguments set the ticks:
+
+| Argument | Effect |
+| --- | --- |
+| `ticks` | direction of the major and minor ticks: `"out"` (default), `"in"` or `"inout"`; anything else raises `ValueError` |
+| `mirror` | ticks on all four sides; the labels stay at the bottom and left |
+| `minor` | minor ticks (`Axes.minorticks_on`) |
+| `color` | colour of the spines and ticks, any matplotlib colour; grey by default |
+
+`style_axes(ax, ticks="in", mirror=True, minor=True, color="black")` gives the boxed
+look of IDL or Gnuplot plots.
 
 ### `DecimalCommaFormatter`
 

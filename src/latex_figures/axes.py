@@ -1,4 +1,4 @@
-"""Axes formatting: discreet spines, outward ticks, decimal comma."""
+"""Axes formatting: discreet spines, ticks outward by default, decimal comma."""
 
 from collections.abc import Sequence
 from typing import Any
@@ -36,27 +36,46 @@ class DecimalCommaFormatter(ScalarFormatter):
         return _comma(super().get_offset())
 
 
+_TICK_DIRECTIONS = ("out", "in", "inout")
+
+
 def style_axes(
-    ax: Axes | None = None, format_ticks: bool = True, decimal_comma: bool = True
+    ax: Axes | None = None,
+    format_ticks: bool = True,
+    decimal_comma: bool = True,
+    *,
+    ticks: str = "out",
+    mirror: bool = False,
+    minor: bool = False,
+    color: Any = "gray",
 ) -> Axes:
-    """Thin grey spines, outward ticks, and (``format_ticks``) a formatter of its own on
-    each linear axis: :class:`DecimalCommaFormatter`, or with ``decimal_comma=False`` a
-    mathtext ``ScalarFormatter`` with the same power limits. Calls ``tight_layout`` on
-    the figure of ``ax`` (the current axes by default).
+    """Thin spines, ticks, and (``format_ticks``) a formatter of its own on each linear
+    axis: :class:`DecimalCommaFormatter`, or with ``decimal_comma=False`` a mathtext
+    ``ScalarFormatter`` with the same power limits. Calls ``tight_layout`` on the figure
+    of ``ax`` (the current axes by default).
+
+    The ticks point ``ticks`` (``"out"``, ``"in"`` or ``"inout"``), at the bottom and
+    left, or on all four sides with ``mirror`` (the labels stay at the bottom and left);
+    ``minor`` adds minor ticks. ``color``, any matplotlib colour, goes to the spines and
+    the ticks. The defaults give grey spines and outward ticks.
 
     Each axis gets its own formatter: a formatter shared by both axes keeps a single
     common factor, so the ×10⁵ of the x axis would give way to the y axis's.
     """
+    if ticks not in _TICK_DIRECTIONS:
+        raise ValueError(f"ticks must be one of {_TICK_DIRECTIONS}, not {ticks!r}")
     if ax is None:
         ax = plt.gca()
     for spine in ax.spines.values():
         spine.set_visible(True)
-        spine.set_color("gray")
+        spine.set_color(color)
         spine.set_linewidth(0.5)
-    ax.xaxis.set_ticks_position("bottom")
-    ax.yaxis.set_ticks_position("left")
+    ax.xaxis.set_ticks_position("both" if mirror else "bottom")
+    ax.yaxis.set_ticks_position("both" if mirror else "left")
+    if minor:
+        ax.minorticks_on()
     for axis in (ax.xaxis, ax.yaxis):
-        axis.set_tick_params(direction="out", which="both", color="gray")
+        axis.set_tick_params(direction=ticks, which="both", color=color)
         if format_ticks and axis.get_scale() == "linear":
             axis.set_major_formatter(_formatter(decimal_comma))
     figure = ax.get_figure()

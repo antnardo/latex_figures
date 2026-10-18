@@ -66,6 +66,40 @@ def test_spines_visible_and_grey(axes):
     assert all(spine.get_linewidth() == 0.5 for spine in axes.spines.values())
 
 
+def test_default_ticks_outward_bottom_left(axes):
+    style_axes(axes)
+    axes.figure.canvas.draw()
+    params = axes.xaxis.get_tick_params()
+    assert params["direction"] == "out"
+    assert params["bottom"] and not params["top"]
+    assert params["color"] == "gray"
+    assert len(axes.xaxis.get_minorticklocs()) == 0
+
+
+def test_ticks_inward_on_four_sides(axes):
+    style_axes(axes, ticks="in", mirror=True, minor=True, color="black")
+    axes.figure.canvas.draw()
+    for axis, sides in ((axes.xaxis, ("bottom", "top")), (axes.yaxis, ("left", "right"))):
+        for which in ("major", "minor"):
+            params = axis.get_tick_params(which=which)
+            assert params["direction"] == "in"
+            assert all(params[side] for side in sides)
+            assert params["color"] == "black"
+        assert len(axis.get_minorticklocs()) > 0
+    assert axes.spines["top"].get_edgecolor() == (0, 0, 0, 1)
+
+
+def test_mirror_keeps_labels_bottom_left(axes):
+    style_axes(axes, mirror=True)
+    tick = axes.xaxis.get_major_ticks()[0]
+    assert tick.label1.get_visible() and not tick.label2.get_visible()
+
+
+def test_unknown_tick_direction_refused(axes):
+    with pytest.raises(ValueError, match="ticks must be one of"):
+        style_axes(axes, ticks="inside")
+
+
 def test_inset_placed_inside_the_axes(axes):
     inset = add_inset(axes, [0.6, 0.1, 0.3, 0.3])
     axes.figure.canvas.draw()

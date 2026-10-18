@@ -206,6 +206,26 @@ $\times\mathdefault{10^{−3}}\mathdefault{}$
 $\mathdefault{1{,}50}$
 ```
 
+The ticks point outward by default. `ticks="in"` turns them inward, `mirror=True`
+repeats them on the top and right (the labels stay at the bottom and left),
+`minor=True` adds minor ticks, and `color` sets the colour of spines and ticks:
+
+```python
+import matplotlib.pyplot as plt
+
+from latex_figures import style_axes
+
+fig, ax = plt.subplots()
+ax.plot([0, 10], [0, 1])
+style_axes(ax, ticks="in", mirror=True, minor=True, color="black")
+params = ax.xaxis.get_tick_params()
+print(params["direction"], params["bottom"], params["top"], params["labeltop"])
+```
+
+```text
+in True True False
+```
+
 `add_inset(ax, [x0, y0, width, height])` places inset axes, in fractions of `ax`, with
 tick labels shrunk to suit their size, as in the figure above; call `style_axes` on the
 inset too.
