@@ -7,7 +7,7 @@ import latex_figures
 
 
 def test_version_read_by_pyproject():
-    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text("utf-8"))
     assert pyproject["tool"]["hatch"]["version"]["path"] == "src/latex_figures/__init__.py"
     assert re.fullmatch(r"\d+\.\d+\.\d+", latex_figures.__version__)
 
